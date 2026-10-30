@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Target Master</title>
+<style>
+body {
+  margin: 0;
+  background: #10172a;
+  color: white;
+  font-family: Arial;
+  text-align: center;
+}
+h1 { color: #38f9d7; margin: 14px 0; }
+.info {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  font-size: 19px;
+  margin: 12px;
+}
+canvas {
+  background: linear-gradient(#172554, #312e81);
+  border: 3px solid #38f9d7;
+  border-radius: 12px;
+  width: 94%;
+  max-width: 700px;
+  display: block;
+  margin: 12px auto;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+button {
+  padding: 12px 22px;
+  background: #38f9d7;
+  color: #10172a;
+  border: none;
+  border-radius: 9px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+}
+#message { color: #facc15; min-height: 24px; }
+</style>
+</head>
+<body>
+
+<h1>🎯 TARGET MASTER</h1>
+
+<div class="info">
+  <div>⭐ Score: <span id="score">0</span></div>
+  <div>⏱️ Time: <span id="time">30</span>s</div>
+</div>
+
+<canvas id="game" width="700" height="400"></canvas>
+
+<p id="message">Start dabao aur targets par click karo!</p>
+<button id="start">▶ START GAME</button>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const scoreText = document.getElementById("score");
+const timeText = document.getElementById("time");
+const message = document.getElementById("message");
+const startBtn = document.getElementById("start");
+
+let targets = [];
+let score = 0;
+let time = 30;
+let playing = false;
+let lastTime = 0;
+let spawnClock = 0;
+let animationId = 0;
+let endTime = 0;
+
+function newTarget() {
+  const r = 22 + Math.random() * 12;
+  targets.push({
+    x: r + Math.random() * (700 - 2*r),
+    y: r + Math.random() * (400 - 2*r),
+    r: r,
+    hue: Math.random() * 360,
+    vx: (Math.random() - 0.5) * 1.5,
+    vy: (Math.random() - 0.5) * 1.5
+  });
+}
+
+function drawTarget(t) {
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.4)";
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(t.x,t.y,t.r,0,Math.PI*2);
+  ctx.fillStyle = `hsl(${t.hue},85%,55%)`;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(t.x,t.y,t.r*.67,0,Math.PI*2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(t.x,t.y,t.r*.38,0,Math.PI*2);
+  ctx.fillStyle = `hsl(${t.hue},85%,48%)`;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(t.x,t.y,t.r*.15,0,Math.PI*2);
+  ctx.fillStyle = "#fff176";
+  ctx.fill();
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0,0,700,400);
+
+  // Background stars
+  for(let i=0;i<35;i++){
+    ctx.fillStyle="rgba(255,255,255,.45)";
+    ctx.fillRect((i*97)%700,(i*61)%400,2,2);
+  }
+
+  targets.forEach(t => drawTarget(t));
+
+  if(!playing && time === 30 && score === 0) {
+    ctx.fillStyle="white";
+    ctx.font="bold 27px Arial";
+    ctx.textAlign="center";
+    ctx.fillText("HIT THE TARGETS!",350,195);
+  }
+}
+
+function loop(now) {
+  if(!playing) return;
+
+  const dt = Math.min(now-lastTime, 50);
+  lastTime = now;
+  spawnClock += dt;
+
+  if(now >= endTime) {
+    finish();
+    return;
+  }
+
+  time = Math.max(0, Math.ceil((endTime-now)/1000));
+  timeText.textContent = time;
+
+  if(spawnClock > 650 && targets.length < 7) {
+    newTarget();
+    spawnClock = 0;
+  }
+
+  targets.forEach(t => {
+    t.x += t.vx * dt/16;
+    t.y += t.vy * dt/16;
+    if(t.x < t.r || t.x > 700-t.r) t.vx *= -1;
+    if(t.y < t.r || t.y > 400-t.r) t.vy *= -1;
+  });
+
+  draw();
+  animationId = requestAnimationFrame(loop);
+}
+
+function startGame() {
+  cancelAnimationFrame(animationId);
+  score = 0;
+  time = 30;
+  targets = [];
+  spawnClock = 0;
+  scoreText.textContent = score;
+  timeText.textContent = time;
+  message.textContent = "🎯 Jaldi click karo!";
+  startBtn.textContent = "↻ RESTART";
+  playing = true;
+  endTime = performance.now() + 30000;
+  lastTime = performance.now();
+  newTarget();
+  newTarget();
+  draw();
+  animationId = requestAnimationFrame(loop);
+}
+
+function finish() {
+  playing = false;
+  time = 0;
+  timeText.textContent = 0;
+  draw();
+  ctx.fillStyle = "rgba(0,0,0,.75)";
+  ctx.fillRect(90,130,520,140);
+  ctx.fillStyle = "#38f9d7";
+  ctx.font = "bold 32px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("TIME UP!",350,180);
+  ctx.fillStyle = "white";
+  ctx.font = "23px Arial";
+  ctx.fillText("Your Score: " + score,350,220);
+  message.textContent = score >= 20 ?
+    "🔥 Amazing! Tum expert ho!" : "👏 Achha try! Phir se khelo!";
+  startBtn.textContent = "↻ PLAY AGAIN";
+}
+
+canvas.addEventListener("click", function(e) {
+  if(!playing) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX-rect.left)*700/rect.width;
+  const y = (e.clientY-rect.top)*400/rect.height;
+
+  for(let i=targets.length-1;i>=0;i--) {
+    const t = targets[i];
+    if(Math.hypot(x-t.x,y-t.y) < t.r) {
+      score += 1;
+      scoreText.textContent = score;
+      targets.splice(i,1);
+      newTarget();
+      message.textContent = "✨ Nice shot! +1 point";
+      return;
+    }
+  }
+  message.textContent = "😅 Miss! Target par click karo.";
+});
+
+startBtn.addEventListener("click", startGame);
+draw();
+</script>
+</body>
+</html>
